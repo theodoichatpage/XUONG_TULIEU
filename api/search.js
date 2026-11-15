@@ -66,11 +66,23 @@ async function archive(query, kind, limit) {
 
 function consolidate(items, query) {
   const queryWords = new Set(words(query));
-  const score = item => words(item.title).filter(word => queryWords.has(word)).length;
+  const searchYear = [...queryWords].find(word => /^(18|19|20)\d{2}$/.test(word));
+  const war = queryWords.has('vietnam') && queryWords.has('war');
+  const score = item => {
+    const titleWords = new Set(words(item.title));
+    const year = Number(item.date?.match(/\b(?:18|19|20)\d{2}\b/)?.[0]);
+    const relevance = [...titleWords].filter(word => queryWords.has(word)).length;
+    if (searchYear && year === Number(searchYear)) return relevance + 3;
+    if (war && year >= 1955 && year <= 1975) return relevance + 2;
+    if (war && year > 1975) return relevance - 2;
+    return relevance;
+  };
   const seen = new Set();
   return items.sort((a,b) => score(b) - score(a) || Number(Boolean(b.file)) - Number(Boolean(a.file))).filter(item => {
     const title = words(item.title).join(' ');
-    const keys = [item.id, item.sha && ('sha:' + item.sha), title.length > 12 && item.kind + ':' + title].filter(Boolean);
+    const nara = item.title.match(/\bNARA\s*-\s*(\d+)\b/i);
+    const archivalKey = nara && 'nara:' + nara[1] + ':' + item.kind + ':' + title.split(' ').slice(0, 10).join(' ');
+    const keys = [item.id, item.sha && ('sha:' + item.sha), archivalKey, title.length > 12 && item.kind + ':' + title].filter(Boolean);
     const repeated = keys.some(key => seen.has(key));
     for (const key of keys) seen.add(key);
     return !repeated;
@@ -102,5 +114,6 @@ export default async function handler(req, res) {
   const items = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
   const warnings = [...new Set(results.flatMap((result, index) => result.status === 'rejected' ? [jobs[index].name] : []))];
   res.setHeader('Cache-Control', warnings.length ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=240');
-  return res.status(200).json({ items: consolidate(items, normalized), warnings, variants, duplicates: items.length - consolidate(items, normalized).length });
+  const unique = consolidate(items, normalized);
+  return res.status(200).json({ items: unique, warnings, variants, duplicates: items.length - unique.length });
 }
