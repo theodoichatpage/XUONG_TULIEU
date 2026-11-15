@@ -18,3 +18,7 @@ Mở http://127.0.0.1:3030. Hai endpoint tìm kiếm và lấy danh sách tệp 
 ## Vercel
 
 Import repo này dưới dạng một project riêng. `public/` chứa giao diện và `api/` chứa các hàm Node.js. Tệp lớn được mở trực tiếp từ kho gốc.
+
+## Tìm rộng trên web
+
+Đặt biến môi trường máy chủ `BRAVE_SEARCH_API_KEY` trên Vercel rồi triển khai lại để bật tìm ảnh/video trên chỉ mục web Brave. Mặc định trang vẫn tìm trong Wikimedia Commons, Internet Archive và có các mục tham khảo đã đối chiếu cho chủ đề kéo pháo Điện Biên Phủ. Các nút Google Ảnh, Google Video và YouTube mở truy vấn ở nguồn tương ứng.

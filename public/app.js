@@ -138,7 +138,8 @@ function makeCard(item) {
   actions.append(save);
   const download = link(item.blob ? 'Tải tệp' : 'Mở tệp gốc', item.blob ? fileUrl(item) : item.file, item.blob && item.title);
   if (download) actions.append(download);
-  else actions.append(button('Xem tệp', () => showDetail(item)));
+  else if (item.kind === 'image' && !item.key && item.url) addLinks(actions, link('Mở nguồn', item.url));
+  else actions.append(button(item.youtube ? 'Xem video' : 'Xem tệp', () => showDetail(item)));
   info.append(actions);
   card.append(cover, info);
   return card;
@@ -148,6 +149,15 @@ function render() {
   for (const tab of document.querySelectorAll('[data-mode]')) tab.setAttribute('aria-pressed', String(tab.dataset.mode === mode));
   for (const tab of document.querySelectorAll('[data-kind]')) tab.setAttribute('aria-pressed', String(tab.dataset.kind === kind));
   source.hidden = mode !== 'search';
+  const webLinks = get('web-links');
+  webLinks.replaceChildren();
+  webLinks.hidden = mode !== 'search';
+  if (mode === 'search' && query.value.trim()) {
+    const term = encodeURIComponent(query.value.trim());
+    addLinks(webLinks, link('Google Ảnh', 'https://www.google.com/search?tbm=isch&q=' + term),
+      link('Google Video', 'https://www.google.com/search?tbm=vid&q=' + term),
+      link('YouTube', 'https://www.youtube.com/results?search_query=' + term));
+  }
   get('count').textContent = saved.size;
   const items = mode === 'local' ? [...local.values()] : mode === 'saved' ? [...saved.values()] : result?.items || [];
   const visible = items.filter(item => !kind || item.kind === kind);
@@ -178,6 +188,7 @@ async function search(deep = false) {
     if (!response.ok) throw new Error(data.error);
     if (controller !== current) return;
     result = data;
+    get('web-option').hidden = !data.webEnabled;
     const summary = [data.items.length + ' kết quả'];
     if (data.duplicates) summary.push('Gộp ' + data.duplicates + ' mục trùng');
     if (data.variants.join() !== query.value.trim()) summary.push('Từ khóa: ' + data.variants.join(' / '));
@@ -210,6 +221,16 @@ async function showDetail(item) {
   const holder = element('div');
   const media = preview(item, item.blob ? fileUrl(item) : item.preview);
   if (media) holder.append(media);
+  if (/^[\w-]{11}$/.test(item.youtube || '')) {
+    const player = element('iframe', '', 'detail-media embed');
+    player.title = item.title;
+    player.src = 'https://www.youtube-nocookie.com/embed/' + item.youtube;
+    player.allowFullscreen = true;
+    holder.append(player);
+  }
+  if (item.kind === 'image' && !media && !item.key && safeUrl(item.thumb)) {
+    holder.append(preview(item, item.thumb));
+  }
   body.append(holder, element('p', [item.source, item.date, item.width && item.height ? item.width + ' × ' + item.height : '', formatBytes(item.size)].filter(Boolean).join(' · '), 'meta'));
   if (item.description) body.append(element('p', item.description));
   if (item.credit) body.append(element('p', 'Ghi nguồn: ' + item.credit));

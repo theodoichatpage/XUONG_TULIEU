@@ -1,3 +1,5 @@
+import { braveMedia, editorialReferences } from '../lib/web-sources.js';
+
 const agent = 'XuongTuLieu/1.0 (https://github.com/theodoichatpage/XUONG_TULIEU)';
 const plain = (value = '') => String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
 const words = value => value.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/gi, 'd').toLowerCase().match(/[a-z0-9]+/g) || [];
@@ -49,7 +51,8 @@ async function commons(query, kind, limit) {
 async function archive(query, kind, limit) {
   const fields = ['identifier','title','date','description','licenseurl','rights','creator'];
   const params = new URLSearchParams({
-    q: words(query).slice(0, 20).join(' AND ') + ' AND mediatype:' + (kind === 'video' ? 'movies' : 'image'),
+    q: '(' + words(query).slice(0, 20).map(word => '(title:' + word + ' OR subject:' + word + ')').join(' AND ')
+      + ') AND mediatype:' + (kind === 'video' ? 'movies AND NOT collection:tvarchive AND NOT identifier:CSPAN*' : 'image'),
     rows: String(limit), output: 'json'
   });
   for (const field of fields) params.append('fl[]', field);
@@ -69,6 +72,7 @@ function consolidate(items, query) {
   const searchYear = [...queryWords].find(word => /^(18|19|20)\d{2}$/.test(word));
   const war = queryWords.has('vietnam') && queryWords.has('war');
   const score = item => {
+    if (item.editorial) return 30;
     const titleWords = new Set(words(item.title));
     const year = Number(item.date?.match(/\b(?:18|19|20)\d{2}\b/)?.[0]);
     const relevance = [...titleWords].filter(word => queryWords.has(word)).length;
@@ -82,7 +86,7 @@ function consolidate(items, query) {
     const title = words(item.title).join(' ');
     const nara = item.title.match(/\bNARA\s*-\s*(\d+)\b/i);
     const archivalKey = nara && 'nara:' + nara[1] + ':' + item.kind + ':' + title.split(' ').slice(0, 10).join(' ');
-    const keys = [item.id, item.sha && ('sha:' + item.sha), archivalKey, title.length > 12 && item.kind + ':' + title].filter(Boolean);
+    const keys = [item.id, item.youtube && ('youtube:' + item.youtube), item.sha && ('sha:' + item.sha), archivalKey, title.length > 12 && item.kind + ':' + title].filter(Boolean);
     const repeated = keys.some(key => seen.has(key));
     for (const key of keys) seen.add(key);
     return !repeated;
@@ -99,21 +103,26 @@ export default async function handler(req, res) {
   const translated = terms.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), query)
     .normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/gi, 'd').replace(/\s+/g, ' ').trim();
   const normalized = /\p{L}/u.test(translated) && translated ? translated : query;
-  const variants = [...new Set(deep ? [normalized, query] : [normalized])];
+  const normalizedWords = words(query).join(' ');
+  const artillery = /\b(?:dien bien phu.*(?:phao|artillery|canons?)|(?:phao|artillery|canons?).*dien bien phu)\b/.test(normalizedWords);
+  const variants = [...new Set(artillery
+    ? ['kéo pháo Điện Biên Phủ', 'Dien Bien Phu artillery', ...(deep ? ['Viet Minh artillery Dien Bien Phu', 'Diên Biên Phu canons'] : [])]
+    : [query, normalized])];
   const kinds = ['image', 'video'].includes(kind) ? [kind] : ['image', 'video'];
+  const webEnabled = Boolean(process.env.BRAVE_SEARCH_API_KEY);
   const providers = [
-    ['commons', 'Wikimedia Commons', commons],
-    ['archive', 'Internet Archive', archive]
+    ['commons', 'Wikimedia Commons', commons, variants],
+    ['archive', 'Internet Archive', archive, artillery ? ['Dien Bien Phu artillery'] : [normalized]],
+    ...(webEnabled ? [['web', 'Tìm trên web', (value, type, limit) => braveMedia(json, value, type, limit), [artillery ? variants[0] : query]]] : [])
   ].filter(([key]) => !source || key === source);
-  const jobs = providers.flatMap(([key, name, search]) =>
-    (key === 'archive' ? [normalized] : variants).flatMap(value =>
-      kinds.map(type => ({ name, run: search(value, type, deep ? 16 : 10) }))
-    )
+  const jobs = providers.flatMap(([, name, search, queries]) =>
+    queries.flatMap(value => kinds.map(type => ({ name, run: search(value, type, deep ? 28 : 16) })))
   );
   const results = await Promise.allSettled(jobs.map(job => job.run));
-  const items = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  const datedReferences = !source || source === 'vn' ? editorialReferences(artillery, kinds) : [];
+  const items = [...datedReferences, ...results.flatMap(result => result.status === 'fulfilled' ? result.value : [])];
   const warnings = [...new Set(results.flatMap((result, index) => result.status === 'rejected' ? [jobs[index].name] : []))];
   res.setHeader('Cache-Control', warnings.length ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=240');
   const unique = consolidate(items, normalized);
-  return res.status(200).json({ items: unique, warnings, variants, duplicates: items.length - unique.length });
+  return res.status(200).json({ items: unique, warnings, variants, webEnabled, duplicates: items.length - unique.length });
 }

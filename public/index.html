@@ -21,11 +21,11 @@
     <p>Tra cứu nhiều kho, xem trước và chọn tệp cho bản dựng.</p>
     <form id="search">
       <label class="sr" for="query">Từ khóa</label>
-      <input id="query" name="q" required maxlength="140" value="Vietnam War" placeholder="Sự kiện, địa điểm hoặc năm">
+      <input id="query" name="q" required maxlength="140" value="kéo pháo Điện Biên Phủ" placeholder="Sự kiện, địa điểm hoặc năm">
       <button class="primary" type="submit">Tìm tư liệu</button>
       <button class="secondary" type="submit" value="deep">Tìm sâu</button>
     </form>
-    <div class="examples"><span>Thử tìm</span><button data-query="Huế Tết Mậu Thân 1968">Huế 1968</button><button data-query="Saigon evacuation 1975">Sài Gòn 1975</button><button data-query="Vietnam War Ho Chi Minh trail">Đường Trường Sơn</button></div>
+    <div class="examples"><span>Thử tìm</span><button data-query="kéo pháo Điện Biên Phủ">Điện Biên Phủ</button><button data-query="Huế Tết Mậu Thân 1968">Huế 1968</button><button data-query="Saigon evacuation 1975">Sài Gòn 1975</button><button data-query="Vietnam War Ho Chi Minh trail">Đường Trường Sơn</button></div>
   </section>
   <section aria-label="Tủ tư liệu">
     <div class="workspace">
@@ -43,8 +43,9 @@
         <button data-kind="image" aria-pressed="false">Ảnh</button>
         <button data-kind="video" aria-pressed="false">Video</button>
       </div>
-      <label><span class="sr">Kho tìm kiếm</span><select id="source"><option value="">Tất cả kho</option><option value="commons">Wikimedia Commons</option><option value="archive">Internet Archive</option></select></label>
+      <label><span class="sr">Kho tìm kiếm</span><select id="source"><option value="">Tất cả kho</option><option value="vn">Nguồn Việt Nam đã đối chiếu</option><option id="web-option" value="web" hidden>Web</option><option value="commons">Wikimedia Commons</option><option value="archive">Internet Archive</option></select></label>
     </div>
+    <div class="web-links" id="web-links"></div>
     <p class="status" id="status" role="status"></p>
     <div id="grid" class="grid"></div>
   </section>
