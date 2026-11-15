@@ -1,3 +1,4 @@
+import { isPipeline, pipelineImages, pipelineQueries } from '../lib/pipeline.js';
 import { relevant } from '../lib/relevance.js';
 import { braveMedia, editorialReferences } from '../lib/web-sources.js';
 
@@ -107,7 +108,8 @@ export default async function handler(req, res) {
   const normalizedWords = words(query).join(' ');
   const artillery = /\b(?:dien bien phu.*(?:phao|artillery|canons?)|(?:phao|artillery|canons?).*dien bien phu)\b/.test(normalizedWords);
   const crossing = artillery && /\b(?:qua song|qua suoi|qua cau|cau tre|cau go|bridge|river|stream)\b/.test(normalizedWords);
-  const variants = [...new Set(crossing
+  const pipeline = isPipeline(normalizedWords);
+  const variants = [...new Set(pipeline ? pipelineQueries : crossing
     ? [query, 'kéo pháo qua suối Điện Biên Phủ', 'kéo pháo qua cầu Điện Biên Phủ', 'Dien Bien Phu artillery river crossing', ...(deep ? ['Viet Minh artillery bridge Dien Bien Phu', 'Dien Bien Phu transport des canons pont'] : [])]
     : artillery
     ? ['kéo pháo Điện Biên Phủ', 'Dien Bien Phu artillery', ...(deep ? ['Viet Minh artillery Dien Bien Phu', 'Diên Biên Phu canons'] : [])]
@@ -116,18 +118,22 @@ export default async function handler(req, res) {
   const webEnabled = Boolean(process.env.BRAVE_SEARCH_API_KEY);
   const providers = [
     ['commons', 'Wikimedia Commons', commons, variants],
-    ['archive', 'Internet Archive', archive, crossing ? ['Dien Bien Phu artillery bridge', 'Dien Bien Phu artillery river'] : artillery ? ['Dien Bien Phu artillery'] : [normalized]],
-    ...(webEnabled ? [['web', 'Tìm trên web', (value, type, limit) => braveMedia(json, value, type, limit), crossing && deep ? variants.slice(0, 3) : [artillery ? variants[0] : query]]] : [])
+    ['archive', 'Internet Archive', archive, pipeline ? [pipelineQueries.at(-1)] : crossing ? ['Dien Bien Phu artillery bridge', 'Dien Bien Phu artillery river'] : artillery ? ['Dien Bien Phu artillery'] : [normalized]],
+    ...(webEnabled ? [['web', 'Tìm trên web', (value, type, limit) => braveMedia(json, value, type, limit), pipeline || (crossing && deep) ? variants.slice(0, deep ? 3 : 1) : [artillery ? variants[0] : query]]] : [])
   ].filter(([key]) => !source || key === source);
   const jobs = providers.flatMap(([, name, search, queries]) =>
     queries.flatMap(value => kinds.map(type => ({ name, run: search(value, type, deep ? 28 : 16) })))
   );
   const results = await Promise.allSettled(jobs.map(job => job.run));
   const datedReferences = !source || source === 'vn' ? editorialReferences(artillery && !crossing, kinds) : [];
-  const items = [...datedReferences, ...results.flatMap(result => result.status === 'fulfilled' ? result.value : [])];
+  const selectedImages = pipeline && (!source || source === 'vn') && kinds.includes('image') ? pipelineImages : [];
+  const items = [...selectedImages, ...datedReferences, ...results.flatMap(result => result.status === 'fulfilled' ? result.value : [])];
   const warnings = [...new Set(results.flatMap((result, index) => result.status === 'rejected' ? [jobs[index].name] : []))];
   res.setHeader('Cache-Control', warnings.length ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=240');
-  const matching = items.filter(item => relevant(item, query, variants, words));
+  const matching = items.filter(item => pipeline
+    ? item.editorial || /\b(?:xang dau|fuel|petrol|gasoline)\b/.test(words(item.title + ' ' + (item.description || '')).join(' '))
+      && variants.some(variant => relevant(item, variant, [], words))
+    : relevant(item, query, variants, words));
   const unique = consolidate(matching, normalized);
   const sourceNotes = crossing ? [
     { title: 'Hồi ức cựu binh về kéo pháo qua sông, qua suối', url: 'https://btllang.mod.gov.vn/tin-tuc/tin-tong-hop/2319-nh-ng-chuy-n-kho-tin-v-hanh-trinh-keo-phao-len-di-n-bien-ph.html' },
