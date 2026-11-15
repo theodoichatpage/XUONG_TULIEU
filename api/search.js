@@ -106,25 +106,32 @@ export default async function handler(req, res) {
   const normalized = /\p{L}/u.test(translated) && translated ? translated : query;
   const normalizedWords = words(query).join(' ');
   const artillery = /\b(?:dien bien phu.*(?:phao|artillery|canons?)|(?:phao|artillery|canons?).*dien bien phu)\b/.test(normalizedWords);
-  const variants = [...new Set(artillery
+  const crossing = artillery && /\b(?:qua song|qua suoi|qua cau|cau tre|cau go|bridge|river|stream)\b/.test(normalizedWords);
+  const variants = [...new Set(crossing
+    ? [query, 'kéo pháo qua suối Điện Biên Phủ', 'kéo pháo qua cầu Điện Biên Phủ', 'Dien Bien Phu artillery river crossing', ...(deep ? ['Viet Minh artillery bridge Dien Bien Phu', 'Dien Bien Phu transport des canons pont'] : [])]
+    : artillery
     ? ['kéo pháo Điện Biên Phủ', 'Dien Bien Phu artillery', ...(deep ? ['Viet Minh artillery Dien Bien Phu', 'Diên Biên Phu canons'] : [])]
     : [query, normalized])];
   const kinds = ['image', 'video'].includes(kind) ? [kind] : ['image', 'video'];
   const webEnabled = Boolean(process.env.BRAVE_SEARCH_API_KEY);
   const providers = [
     ['commons', 'Wikimedia Commons', commons, variants],
-    ['archive', 'Internet Archive', archive, artillery ? ['Dien Bien Phu artillery'] : [normalized]],
-    ...(webEnabled ? [['web', 'Tìm trên web', (value, type, limit) => braveMedia(json, value, type, limit), [artillery ? variants[0] : query]]] : [])
+    ['archive', 'Internet Archive', archive, crossing ? ['Dien Bien Phu artillery bridge', 'Dien Bien Phu artillery river'] : artillery ? ['Dien Bien Phu artillery'] : [normalized]],
+    ...(webEnabled ? [['web', 'Tìm trên web', (value, type, limit) => braveMedia(json, value, type, limit), crossing && deep ? variants.slice(0, 3) : [artillery ? variants[0] : query]]] : [])
   ].filter(([key]) => !source || key === source);
   const jobs = providers.flatMap(([, name, search, queries]) =>
     queries.flatMap(value => kinds.map(type => ({ name, run: search(value, type, deep ? 28 : 16) })))
   );
   const results = await Promise.allSettled(jobs.map(job => job.run));
-  const datedReferences = !source || source === 'vn' ? editorialReferences(artillery, kinds) : [];
+  const datedReferences = !source || source === 'vn' ? editorialReferences(artillery && !crossing, kinds) : [];
   const items = [...datedReferences, ...results.flatMap(result => result.status === 'fulfilled' ? result.value : [])];
   const warnings = [...new Set(results.flatMap((result, index) => result.status === 'rejected' ? [jobs[index].name] : []))];
   res.setHeader('Cache-Control', warnings.length ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=240');
   const matching = items.filter(item => relevant(item, query, variants, words));
   const unique = consolidate(matching, normalized);
-  return res.status(200).json({ items: unique, warnings, variants, webEnabled, filtered: items.length - matching.length, duplicates: matching.length - unique.length });
+  const sourceNotes = crossing ? [
+    { title: 'Hồi ức cựu binh về kéo pháo qua sông, qua suối', url: 'https://btllang.mod.gov.vn/tin-tuc/tin-tong-hop/2319-nh-ng-chuy-n-kho-tin-v-hanh-trinh-keo-phao-len-di-n-bien-ph.html' },
+    { title: 'Triển lãm Bảo tàng Cần Thơ có ảnh công binh bắc cầu phao và ảnh kéo pháo', url: 'https://baotangtpcantho.cantho.gov.vn/article/trien-lam-anh-dien-bien-phu-thien-su-vang/1029.htm' }
+  ] : [];
+  return res.status(200).json({ items: unique, sourceNotes, warnings, variants, webEnabled, filtered: items.length - matching.length, duplicates: matching.length - unique.length });
 }

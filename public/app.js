@@ -150,6 +150,7 @@ function render() {
   for (const tab of document.querySelectorAll('[data-kind]')) tab.setAttribute('aria-pressed', String(tab.dataset.kind === kind));
   source.hidden = mode !== 'search';
   const webLinks = get('web-links');
+  get('source-notes')?.remove();
   webLinks.replaceChildren();
   webLinks.hidden = mode !== 'search';
   if (mode === 'search' && query.value.trim()) {
@@ -157,6 +158,20 @@ function render() {
     addLinks(webLinks, link('Google Ảnh', 'https://www.google.com/search?tbm=isch&q=' + term),
       link('Google Video', 'https://www.google.com/search?tbm=vid&q=' + term),
       link('YouTube', 'https://www.youtube.com/results?search_query=' + term));
+    if (result?.sourceNotes?.length) {
+      const notes = element('details');
+      notes.open = !result.items.length;
+      notes.append(element('summary', 'Nguồn tham khảo về cảnh vượt sông, suối'));
+      const list = element('ul');
+      for (const item of result.sourceNotes) {
+        const row = element('li');
+        addLinks(row, link(item.title, item.url));
+        list.append(row);
+      }
+      notes.append(list);
+      webLinks.after(notes);
+      notes.id = 'source-notes';
+    }
   }
   get('count').textContent = saved.size;
   const items = mode === 'local' ? [...local.values()] : mode === 'saved' ? [...saved.values()] : result?.items || [];
