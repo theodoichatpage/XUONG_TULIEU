@@ -1,3 +1,4 @@
+import { relevant } from '../lib/relevance.js';
 import { braveMedia, editorialReferences } from '../lib/web-sources.js';
 
 const agent = 'XuongTuLieu/1.0 (https://github.com/theodoichatpage/XUONG_TULIEU)';
@@ -123,6 +124,7 @@ export default async function handler(req, res) {
   const items = [...datedReferences, ...results.flatMap(result => result.status === 'fulfilled' ? result.value : [])];
   const warnings = [...new Set(results.flatMap((result, index) => result.status === 'rejected' ? [jobs[index].name] : []))];
   res.setHeader('Cache-Control', warnings.length ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=240');
-  const unique = consolidate(items, normalized);
-  return res.status(200).json({ items: unique, warnings, variants, webEnabled, duplicates: items.length - unique.length });
+  const matching = items.filter(item => relevant(item, query, variants, words));
+  const unique = consolidate(matching, normalized);
+  return res.status(200).json({ items: unique, warnings, variants, webEnabled, filtered: items.length - matching.length, duplicates: matching.length - unique.length });
 }

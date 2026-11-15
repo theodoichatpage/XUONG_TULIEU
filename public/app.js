@@ -190,6 +190,7 @@ async function search(deep = false) {
     result = data;
     get('web-option').hidden = !data.webEnabled;
     const summary = [data.items.length + ' kết quả'];
+    if (data.filtered) summary.push('Loại ' + data.filtered + ' mục không đủ liên quan');
     if (data.duplicates) summary.push('Gộp ' + data.duplicates + ' mục trùng');
     if (data.variants.join() !== query.value.trim()) summary.push('Từ khóa: ' + data.variants.join(' / '));
     if (data.warnings.length) summary.push('Chưa phản hồi: ' + data.warnings.join(', '));
