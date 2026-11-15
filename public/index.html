@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#171914">
+<title>Xưởng Tư Liệu</title>
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<header class="header">
+  <div class="wrap mast">
+    <a class="brand" href="/"><span aria-hidden="true">▤</span> Xưởng Tư Liệu</a>
+    <button class="outline" id="saved-top" type="button">Mục đã lưu <b id="count">0</b></button>
+  </div>
+</header>
+<main class="wrap">
+  <section class="intro">
+    <h1>Tìm ảnh & phim tư liệu</h1>
+    <p>Tra cứu nhiều kho, xem trước và chọn tệp cho bản dựng.</p>
+    <form id="search">
+      <label class="sr" for="query">Từ khóa</label>
+      <input id="query" name="q" required maxlength="140" value="Vietnam War" placeholder="Sự kiện, địa điểm hoặc năm">
+      <button class="primary" type="submit">Tìm tư liệu</button>
+      <button class="secondary" type="submit" value="deep">Tìm sâu</button>
+    </form>
+    <div class="examples"><span>Thử tìm</span><button data-query="Huế Tết Mậu Thân 1968">Huế 1968</button><button data-query="Saigon evacuation 1975">Sài Gòn 1975</button><button data-query="Vietnam War Ho Chi Minh trail">Đường Trường Sơn</button></div>
+  </section>
+  <section aria-label="Tủ tư liệu">
+    <div class="workspace">
+      <nav aria-label="Danh mục">
+        <button class="tab" data-mode="search" aria-pressed="true">Kết quả tìm kiếm</button>
+        <button class="tab" data-mode="local" aria-pressed="false">Tệp của tôi</button>
+        <button class="tab" data-mode="saved" aria-pressed="false">Đã lưu</button>
+      </nav>
+      <label class="outline upload" for="files">＋ Nhập tệp</label>
+      <input id="files" type="file" class="sr" multiple accept="image/*,video/*,.ai,.mov,.mkv,.avi,.tif,.tiff,.heic,.heif">
+    </div>
+    <div class="filters">
+      <div id="types" aria-label="Loại tư liệu">
+        <button data-kind="" aria-pressed="true">Tất cả</button>
+        <button data-kind="image" aria-pressed="false">Ảnh</button>
+        <button data-kind="video" aria-pressed="false">Video</button>
+      </div>
+      <label><span class="sr">Kho tìm kiếm</span><select id="source"><option value="">Tất cả kho</option><option value="commons">Wikimedia Commons</option><option value="archive">Internet Archive</option></select></label>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <div id="grid" class="grid"></div>
+  </section>
+</main>
+<dialog id="detail"><div class="detail-head"><h2 id="detail-title"></h2><form method="dialog"><button class="outline" aria-label="Đóng">✕</button></form></div><div id="detail-body"></div></dialog>
+</body>
+</html>
